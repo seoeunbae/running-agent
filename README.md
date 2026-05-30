@@ -53,7 +53,11 @@ If you wish to test using the official Google ADK Web playground:
 adk web
 ```
 This launches a browser-based dashboard at `http://localhost:8080` (or `http://localhost:4200`) connected to your local agent code.
+### 6. Launch the Custom UI Agent (Next.js)
 
+```bash
+python -m uvicorn server:app --host 0.0.0.0 --port 8000
+```
 ---
 
 ## 🛠️ Code Specifications (`agent.py`)

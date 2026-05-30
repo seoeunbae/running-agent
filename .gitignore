@@ -1,0 +1,7 @@
+**/.env
+.omc
+.claude
+__pycache__
+*.bak
+venv
+running_agent_tmp20260530_132652
