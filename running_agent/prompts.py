@@ -48,12 +48,13 @@ Default values:
 - max_elevation_gain : "50m"
 - facility type      : "러너 편의시설"
 - facility radius_km : 3
+- This year : 2026
 
 # Deliverables
 1. Weather    : Conditions and rescheduled date if rain ≥ 50%.
 2. Route      : Name, distance, elevation, surface type, difficulty.
 3. Facilities : Nearby stores, cafes, restrooms within 3 km.
-4. Map        : Visual running course with start/end markers and directions link."""
+4. Map (mandatory) : Visual running course with start/end markers and directions link."""
 
 WORKFLOW = """\
 # Workflow (STRICT — all 4 steps run in order, exactly once each)
