@@ -98,24 +98,52 @@ def get_route_elevation(location: str, distance: str, max_elevation_gain: str) -
 # Tool: facility-finder
 # ---------------------------------------------------------------------------
 
-def search_nearby_facilities(location: str, type: str, radius_km: int = 3) -> dict:
-    """러닝 코스 주변의 편의 시설을 검색합니다.
+async def search_nearby_facilities(tool_context: ToolContext, location: str, type: str, radius_km: int = 3) -> dict:
+    """러닝 코스 주변의 편의 시설을 검색하고 지도 이미지를 생성합니다.
 
     코스 확정 후 세 번째 단계로 호출합니다.
     출발·도착 지점 근처의 편의점, 카페, 공중화장실, 샤워 시설 등
-    러너에게 필요한 시설을 탐색합니다.
+    러너에게 필요한 시설을 탐색하고 지도 위에 위치를 표시합니다.
     """
-    return {
+    facilities = [
+        {"name": f"{location} GS25 편의점", "distance": "0.3km", "note": "에너지바·이온음료 구비"},
+        {"name": f"{location} 카페 런너스", "distance": "0.8km", "note": "러너 전용 라커 및 샤워실 운영"},
+        {"name": f"{location} 공중화장실", "distance": "0.2km", "note": "24시간 개방"},
+    ]
+    result = {
         "location": location,
         "type": type,
         "radius_km": radius_km,
-        "facilities": [
-            {"name": f"{location} GS25 편의점", "distance": "0.3km", "note": "에너지바·이온음료 구비"},
-            {"name": f"{location} 카페 런너스", "distance": "0.8km", "note": "러너 전용 라커 및 샤워실 운영"},
-            {"name": f"{location} 공중화장실", "distance": "0.2km", "note": "24시간 개방"},
-        ],
+        "facilities": facilities,
         "status": "SUCCESS",
     }
+
+    api_key = os.environ.get("GOOGLE_MAPS_API_KEY")
+    if not api_key:
+        return result
+
+    center_coords = _geocode(location, api_key)
+    if not center_coords:
+        return result
+
+    lat0, lng0 = map(float, center_coords.split(","))
+    # Approximate offsets for each facility (distance ≈ 0.3 km, 0.8 km, 0.2 km)
+    offsets = [(0.002, 0.001), (-0.006, 0.003), (0.001, -0.002)]
+    facility_coords = [f"{lat0 + dlat},{lng0 + dlng}" for dlat, dlng in offsets]
+
+    map_url = _build_facilities_map_url(center_coords, facility_coords, api_key)
+    try:
+        req = urllib.request.Request(map_url, headers={"User-Agent": "Mozilla/5.0"})
+        img_bytes = urllib.request.urlopen(req).read()
+        filename = f"facilities_{location}.png"
+        artifact = types.Part(inline_data=types.Blob(data=img_bytes, mime_type="image/png"))
+        version = await tool_context.save_artifact(filename=filename, artifact=artifact)
+        result["map_artifact"] = filename
+        result["map_version"] = version
+    except Exception as e:
+        result["map_error"] = str(e)
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -191,31 +219,32 @@ async def search_running_course(
         offset = (distance_km / 2) / 111.0
         end_coords = f"{lat0 + offset},{lng0}"
 
-    polyline = _compute_walking_polyline(start_coords, end_coords, api_key)
+    # --- 지도 이미지 생성 비활성화 (성능 개선) ---
+    # polyline = _compute_walking_polyline(start_coords, end_coords, api_key)
+    # map_url = _build_static_map_url(start_coords, end_coords, polyline, api_key)
+    # try:
+    #     req = urllib.request.Request(map_url, headers={"User-Agent": "Mozilla/5.0"})
+    #     img_bytes = urllib.request.urlopen(req).read()
+    #     filename = f"running_course_{location}.png"
+    #     artifact = types.Part(inline_data=types.Blob(data=img_bytes, mime_type="image/png"))
+    #     version = await tool_context.save_artifact(filename=filename, artifact=artifact)
+    #     return (
+    #         f"러닝 코스 지도 이미지가 artifact `{filename}` (version {version})으로 저장되었습니다.\n\n{search_text}\n\n"
+    #         f"**지도 보기:** [Google Maps에서 경로 확인하기]({directions_url})"
+    #     )
+    # except Exception as e:
+    #     return (
+    #         f"지도 이미지 생성 중 오류: {e}\n\n{search_text}\n\n"
+    #         f"**지도 보기:** [Google Maps에서 경로 확인하기]({directions_url})"
+    #     )
 
-    map_url = _build_static_map_url(start_coords, end_coords, polyline, api_key)
     directions_url = (
         f"https://www.google.com/maps/dir/?api=1"
         f"&origin={urllib.parse.quote(start_coords)}"
         f"&destination={urllib.parse.quote(end_coords)}"
         f"&travelmode=walking"
     )
-
-    try:
-        req = urllib.request.Request(map_url, headers={"User-Agent": "Mozilla/5.0"})
-        img_bytes = urllib.request.urlopen(req).read()
-        filename = f"running_course_{location}.png"
-        artifact = types.Part(inline_data=types.Blob(data=img_bytes, mime_type="image/png"))
-        version = await tool_context.save_artifact(filename=filename, artifact=artifact)
-        return (
-            f"러닝 코스 지도 이미지가 artifact `{filename}` (version {version})으로 저장되었습니다.\n\n{search_text}\n\n"
-            f"**지도 보기:** [Google Maps에서 경로 확인하기]({directions_url})"
-        )
-    except Exception as e:
-        return (
-            f"지도 이미지 생성 중 오류: {e}\n\n{search_text}\n\n"
-            f"**지도 보기:** [Google Maps에서 경로 확인하기]({directions_url})"
-        )
+    return f"{search_text}\n\n**지도 보기:** [Google Maps에서 경로 확인하기]({directions_url})"
 
 
 def _geocode(location: str, api_key: str) -> str | None:
@@ -275,6 +304,16 @@ def _compute_walking_polyline(start: str, end: str, api_key: str) -> str:
     except Exception:
         pass
     return ""
+
+
+def _build_facilities_map_url(center: str, facility_coords: list, api_key: str) -> str:
+    markers = f"&markers=color:blue%7Clabel:S%7C{center}"
+    for i, coord in enumerate(facility_coords, start=1):
+        markers += f"&markers=color:red%7Clabel:{i}%7C{coord}"
+    return (
+        f"https://maps.googleapis.com/maps/api/staticmap?size=500x500"
+        f"&center={center}&zoom=15{markers}&key={api_key}"
+    )
 
 
 def _build_static_map_url(start: str, end: str, polyline: str, api_key: str) -> str:

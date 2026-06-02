@@ -34,8 +34,8 @@ Each skill maps to one tool in the 4-step pipeline. Execute in strict order.
 
 1. `weather`         — `get_weather_forecast`    : Weather + running condition check.
 2. `route-planner`   — `get_route_elevation`     : Best route for distance and fitness.
-3. `facility-finder` — `search_nearby_facilities`: Stores, cafes, restrooms near start.
-4. `map-visualizer`  — `search_running_course`   : Real Google Maps course + map image."""
+3. `facility-finder` — `search_nearby_facilities`: Stores, cafes, restrooms near start + map image of facility locations.
+4. `map-visualizer`  — `search_running_course`   : Real Google Maps course info (map image generation disabled)."""
 
 TOOLS = """\
 # User Prerequisites
@@ -53,8 +53,8 @@ Default values:
 # Deliverables
 1. Weather    : Conditions and rescheduled date if rain ≥ 50%.
 2. Route      : Name, distance, elevation, surface type, difficulty.
-3. Facilities : Nearby stores, cafes, restrooms within 3 km.
-4. Map (mandatory) : Visual running course with start/end markers and directions link."""
+3. Facilities : Nearby stores, cafes, restrooms within 3 km + map image showing their locations.
+4. Course info: Running course recommendations with directions link (no map image)."""
 
 WORKFLOW = """\
 # Workflow (STRICT — all 4 steps run in order, exactly once each)
@@ -65,10 +65,11 @@ WORKFLOW = """\
    - Use confirmed date and user-supplied location.
 3. `search_nearby_facilities(location, type="러너 편의시설", radius_km=3)`
    - Search around the route start point.
+   - Generates a map image (artifact) showing facility locations with numbered markers.
 4. `search_running_course(location, distance_km)`
-   - Generate map image and real course info via Google Maps.
+   - Returns real course info via Google Maps (map image generation is disabled).
 5. Synthesize all results into one natural-language running briefing.
-   Include: weather summary, route highlights, elevation, facilities, map link, running tips."""
+   Include: weather summary, route highlights, elevation, facilities map, directions link, running tips."""
 
 # ---------------------------------------------------------------------------
 # Assembled instructions

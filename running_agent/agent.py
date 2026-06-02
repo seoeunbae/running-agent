@@ -4,7 +4,7 @@ from .tools import get_tools
 
 root_agent = Agent(
     name="RunningPlanner",
-    model="gemini-3.5-flash",
+    model="gemini-2.5-flash",
     instruction=RUNNING_INSTRUCTION,
     tools=get_tools(),
 )
